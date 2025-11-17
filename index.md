@@ -3,13 +3,6 @@ layout: default
 title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
 ---
 
-<!-- 
-  This is a self-contained Jekyll page for GitHub Pages.
-  This version corrects the math rendering issues by double-escaping
-  backslashes in inline math delimiters for compatibility with the
-  Kramdown Markdown processor.
--->
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,7 +23,7 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
     crossorigin="anonymous"
-    onload="renderMathInElement(document.body, { delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}, {left: '$', right: '$', display: false} ] });"
+    onload="renderMathInElement(document.body, { delimiters: [ {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false} ] });"
   ></script>
 
   <style>
@@ -207,19 +200,19 @@ The deployment of beam search decoders has shifted from CPU-centric logic to hyb
 
 Let \\(T_{\text{step}}\\) be the total time for a single decoding step. Let \\(S\\) represent the effective speedup of the on-device (GPU) parallelizable portion of the task, which accounts for all GPU architectural improvements (cores, specialized hardware, and memory bandwidth). The transition from an early GPU generation (\\(G_1\\)) to a modern one (\\(G_2\\)) can be modeled as follows:
 
-$$
+\\[
 \begin{align*}
     T_{\text{step}} &= T_{\text{compute}} + T_{\text{transfer}} \\
     \text{Given} \quad T_{\text{compute}}(G_2) &= \frac{T_{\text{compute}}(G_1)}{S} \quad \text{where } S \gg 1 \\
     \text{and} \quad T_{\text{transfer}}(G_2) &\approx T_{\text{transfer}}(G_1)
 \end{align*}
-$$
+\\]
 
 The fraction of time spent on data transfer, \\(f\\), consequently shifts from \\(f_1\\) to \\(f_2\\):
 
-$$
+\\[
 f_1 = \frac{T_{\text{transfer}}(G_1)}{T_{\text{compute}}(G_1) + T_{\text{transfer}}(G_1)} \quad \longrightarrow \quad f_2 \approx \frac{T_{\text{transfer}}(G_1)}{\frac{T_{\text{compute}}(G_1)}{S} + T_{\text{transfer}}(G_1)}
-$$
+\\]
 
 As the effective speedup \\(S\\) grows, the effect of \\(\frac{T_{\text{compute}}(G_1)}{S}\\) is diminished and the transfer begins to dominate. Consequently, in this project we will attempt to maximize the fraction of computation that can be performed efficiently on-device to attempt to minimize the effect of the transfer term on overall performance.
 
@@ -231,4 +224,4 @@ As the effective speedup \\(S\\) grows, the effect of \\(\frac{T_{\text{compute}
 | Monday, December 1 | MLP Complete | TBD |
 | Sunday, December 7 | Stretch, Presentation, & Report | TBD |
 
-Exact work distribution is yet to be determined and will be filled in by the mid-project check in.
+Exact work distribution is yet to be determined and will be filled in by the mid-project check in.ã
