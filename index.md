@@ -6,7 +6,7 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
 <!-- 
   This is a self-contained Jekyll page for GitHub Pages.
   It includes YAML Front Matter for Jekyll, embedded CSS for styling,
-  and KaTeX for rendering LaTeX math.
+  and KaTeX for rendering LaTeX math. This version is locked to light mode.
 -->
 
 <head>
@@ -29,7 +29,7 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
     integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
     crossorigin="anonymous"
-    onload="renderMathInElement(document.body);"
+    onload="renderMathInElement(document.body, { delimiters: [ {left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}, {left: '$', right: '$', display: false} ] });"
   ></script>
 
   <style>
@@ -42,19 +42,6 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
       --border-color: #e0e0e0;
       --table-header-bg: #f8f9fa;
       --code-bg: #f1f1f1;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-color: #121212;
-        --text-color: #e0e0e0;
-        --heading-color: #ffffff;
-        --link-color: #66b2ff;
-        --link-hover-color: #99cfff;
-        --border-color: #444444;
-        --table-header-bg: #2c2c2c;
-        --code-bg: #222222;
-      }
     }
 
     body {
@@ -93,6 +80,25 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     .date {
       font-size: 1.1rem;
       color: var(--text-color);
+    }
+
+    .project-link {
+      margin-top: 2rem;
+    }
+
+    .project-link a {
+      font-size: 1.1rem;
+      display: inline-block;
+      padding: 0.6rem 1.2rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--table-header-bg);
+      transition: background-color 0.2s ease;
+    }
+
+    .project-link a:hover {
+      background-color: #e9ecef;
+      text-decoration: none;
     }
 
     h2 {
@@ -134,11 +140,6 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
       font-weight: 600;
     }
 
-    tr:nth-child(even) {
-      /* Optional: for striped tables */
-      /* background-color: var(--table-header-bg); */
-    }
-
     code {
       background-color: var(--code-bg);
       padding: 0.2em 0.4em;
@@ -154,11 +155,10 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
   <p class="subtitle">15-418 Project Proposal</p>
   <p class="authors">Julius Arolovitch, Ben Kleyner, Maxim Yagnyatinskiy</p>
   <p class="date">November 2025</p>
+  <p class="project-link">
+    <a href="https://418-beamers.github.io">View Project Site</a>
+  </p>
 </div>
-
-## URL
-
-**Project URL**: <https://418-beamers.github.io>
 
 ## Summary
 
