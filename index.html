@@ -26,21 +26,32 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     crossorigin="anonymous"
   ></script>
 
-  <!-- KaTeX auto-render -->
-  <script
-    defer
-    src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
-    integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
-    crossorigin="anonymous"
-  ></script>
-
   <script>
     window.addEventListener("DOMContentLoaded", function () {
-      renderMathInElement(document.body, {
-        delimiters: [
-          { left: "\\[", right: "\\]", display: true },
-          { left: "\\(", right: "\\)", display: false }
-        ]
+      const eq1 = String.raw`
+\begin{aligned}
+  T_{\text{step}} &= T_{\text{compute}} + T_{\text{transfer}} \\
+  \text{Given } T_{\text{compute}}(G_2) &= \frac{T_{\text{compute}}(G_1)}{S} \text{ where } S \gg 1 \\
+  \text{and } T_{\text{transfer}}(G_2) &\approx T_{\text{transfer}}(G_1)
+\end{aligned}
+      `;
+
+      const eq2 = String.raw`
+f_1 = \frac{T_{\text{transfer}}(G_1)}
+           {T_{\text{compute}}(G_1) + T_{\text{transfer}}(G_1)}
+\longrightarrow
+f_2 \approx \frac{T_{\text{transfer}}(G_1)}
+                   {\frac{T_{\text{compute}}(G_1)}{S} + T_{\text{transfer}}(G_1)}
+      `;
+
+      katex.render(eq1, document.getElementById("eq1"), {
+        throwOnError: false,
+        displayMode: true
+      });
+
+      katex.render(eq2, document.getElementById("eq2"), {
+        throwOnError: false,
+        displayMode: true
       });
     });
   </script>
@@ -163,6 +174,7 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
 
     .math-block {
       margin: 1.5rem 0;
+      text-align: center;
     }
   </style>
 </head>
@@ -195,8 +207,8 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     output sequence. A network trained with CTC outputs a probability distribution for
     each time step over the set of possible output labels, plus a special blank token.
     The decoding task is to find the most probable output sequence from this
-    \(T \times N\) matrix of probabilities, whereby \(T\) is the number of time steps
-    and \(N\) is the number of labels.
+    <em>T</em> × <em>N</em> matrix of probabilities, whereby <em>T</em> is the number
+    of time steps and <em>N</em> is the number of labels.
   </p>
 
   <p>
@@ -208,21 +220,21 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
   <p>
     CTC Beam Search Decoding is a more effective algorithm that provides more accurate
     transcriptions. Instead of just tracking the single best path, it maintains a
-    &quot;beam&quot; of the \(k\) most probable candidate sequences at each time step. At each
-    step \(t\), it explores extending these \(k\) hypotheses with all possible labels,
-    calculates their new probabilities, and merges paths that result in the same output
-    sequence. The beam is then pruned back to the \(k\) most likely hypotheses to carry
-    forward to step \(t+1\).
+    “beam” of the <em>k</em> most probable candidate sequences at each time step. At
+    each step <em>t</em>, it explores extending these <em>k</em> hypotheses with all
+    possible labels, calculates their new probabilities, and merges paths that result
+    in the same output sequence. The beam is then pruned back to the <em>k</em> most
+    likely hypotheses to carry forward to step <em>t</em>+1.
   </p>
 
   <p>
     The aspects of this problem that benefit from parallelism are two-fold. First, as
     our summary suggests, the entire decoding process for one sequence can be run in
     parallel with other sequences in a batch. This provides a high level of
-    coarse-grained data parallelism. Second, within a single sequence's decoding at
-    each time step \(t\), we can explore all \(k \times N\) possible extensions in
-    parallel. The challenge, as detailed below, lies in the synchronization, merging,
-    and pruning steps that follow.
+    coarse-grained data parallelism. Second, within a single sequence’s decoding at
+    each time step <em>t</em>, we can explore all <em>k</em> × <em>N</em> possible
+    extensions in parallel. The challenge, as detailed below, lies in the
+    synchronization, merging, and pruning steps that follow.
   </p>
 
   <h2>Challenge</h2>
@@ -234,17 +246,17 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
   </p>
 
   <p>
-    First, the probability of a new hypothesis at time \(t\) is not independent. It
-    depends on the probabilities of its prefix at time \(t-1\), as well as the CTC
-    merging logic. This requires synchronization and careful management of state.
+    First, the probability of a new hypothesis at time <em>t</em> is not independent.
+    It depends on the probabilities of its prefix at time <em>t</em>−1, as well as the
+    CTC merging logic. This requires synchronization and careful management of state.
   </p>
 
   <p>
-    Additionally, the &quot;fan-out&quot; step of extending \(k\) hypotheses to \(k \times N\)
-    new ones has poor spatial locality; threads in a warp may access scattered
-    locations in the \(T \times N\) probability matrix and in the beam data
-    structures. The &quot;merge&quot; step requires a many-to-one reduction, which is also
-    memory-intensive and requires synchronization. This leads to a low
+    Additionally, the “fan-out” step of extending <em>k</em> hypotheses to
+    <em>k</em> × <em>N</em> new ones has poor spatial locality; threads in a warp may
+    access scattered locations in the <em>T</em> × <em>N</em> probability matrix and in
+    the beam data structures. The “merge” step requires a many-to-one reduction, which
+    is also memory-intensive and requires synchronization. This leads to a low
     computation-to-communication ratio; the kernel will be dominated by memory
     operations and sorting, not arithmetic.
   </p>
@@ -326,50 +338,37 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     approaches. This hybrid model, however, is fundamentally limited by the data
     transfer between the CPU and GPU at every decoding step. This bottleneck becomes
     more relevant due to the asymmetric scaling of on-device GPU performance versus
-    off-device I/O speed. Driven by specialized hardware like NVIDIA's Tensor Cores
+    off-device I/O speed. Driven by specialized hardware like NVIDIA’s Tensor Cores
     and massive increases in memory bandwidth, the effective computational speed of
     GPUs has increased much faster than the PCIe bus which has seen only modest,
     linear improvements. This creates a classic scenario where overall system speedup
-    is constrained by its slowest component, as stipulated by Amdahl's Law.
+    is constrained by its slowest component, as stipulated by Amdahl’s Law.
   </p>
 
   <p>
-    Let \(T_{\text{step}}\) be the total time for a single decoding step. Let \(S\)
-    represent the effective speedup of the on-device (GPU) parallelizable portion of
-    the task, which accounts for all GPU architectural improvements (cores,
+    Let <em>T</em><sub>step</sub> be the total time for a single decoding step. Let
+    <em>S</em> represent the effective speedup of the on-device (GPU) parallelizable
+    portion of the task, which accounts for all GPU architectural improvements (cores,
     specialized hardware, and memory bandwidth). The transition from an early GPU
-    generation (\(G_1\)) to a modern one (\(G_2\)) can be modeled as follows:
+    generation (<em>G</em><sub>1</sub>) to a modern one (<em>G</em><sub>2</sub>) can be
+    modeled as follows:
   </p>
 
-  <div class="math-block">
-  \[
-  \begin{align*}
-      T_{\text{step}} &= T_{\text{compute}} + T_{\text{transfer}} \\
-      \text{Given} \quad T_{\text{compute}}(G_2) &= \frac{T_{\text{compute}}(G_1)}{S} \quad \text{where } S \gg 1 \\
-      \text{and} \quad T_{\text{transfer}}(G_2) &\approx T_{\text{transfer}}(G_1)
-  \end{align*}
-  \]
-  </div>
+  <div id="eq1" class="math-block"></div>
 
   <p>
-    The fraction of time spent on data transfer, \(f\), consequently shifts from
-    \(f_1\) to \(f_2\):
+    The fraction of time spent on data transfer, <em>f</em>, consequently shifts from
+    <em>f</em><sub>1</sub> to <em>f</em><sub>2</sub>:
   </p>
 
-  <div class="math-block">
-  \[
-  f_1 = \frac{T_{\text{transfer}}(G_1)}{T_{\text{compute}}(G_1) + T_{\text{transfer}}(G_1)}
-  \quad \longrightarrow \quad
-  f_2 \approx \frac{T_{\text{transfer}}(G_1)}{\frac{T_{\text{compute}}(G_1)}{S} + T_{\text{transfer}}(G_1)}
-  \]
-  </div>
+  <div id="eq2" class="math-block"></div>
 
   <p>
-    As the effective speedup \(S\) grows, the effect of
-    \(\frac{T_{\text{compute}}(G_1)}{S}\) is diminished and the transfer begins to
-    dominate. Consequently, in this project we will attempt to maximize the fraction
-    of computation that can be performed efficiently on-device to attempt to minimize
-    the effect of the transfer term on overall performance.
+    As the effective speedup <em>S</em> grows, the effect of
+    <em>T</em><sub>compute</sub>(<em>G</em><sub>1</sub>)/<em>S</em> is diminished and
+    the transfer begins to dominate. Consequently, in this project we will attempt to
+    maximize the fraction of computation that can be performed efficiently on-device to
+    attempt to minimize the effect of the transfer term on overall performance.
   </p>
 
   <h2>Schedule</h2>
