@@ -88,11 +88,11 @@
   <p>
     CTC Beam Search Decoding is a more effective algorithm that provides more accurate
     transcriptions. Instead of just tracking the single best path, it maintains a
-    “beam” of the \(k\) most probable candidate sequences at each time step. At
-    each step \(t\), it explores extending these \(k\) hypotheses with all
+    “beam” of the $k$ most probable candidate sequences at each time step. At
+    each step $t$, it explores extending these $k$ hypotheses with all
     possible labels, calculates their new probabilities, and merges paths that result
-    in the same output sequence. The beam is then pruned back to the \(k\) most
-    likely hypotheses to carry forward to step \(t+1\).
+    in the same output sequence. The beam is then pruned back to the $k$ most
+    likely hypotheses to carry forward to step $t+1$.
   </p>
 
   <p>
@@ -100,7 +100,7 @@
     our summary suggests, the entire decoding process for one sequence can be run in
     parallel with other sequences in a batch. This provides a high level of
     coarse-grained data parallelism. Second, within a single sequence’s decoding at
-    each time step \(t\), we can explore all \(k \times N\) possible
+    each time step $t$, we can explore all $k \times N$ possible
     extensions in parallel. The challenge, as detailed below, lies in the
     synchronization, merging, and pruning steps that follow.
   </p>
@@ -114,15 +114,15 @@
   </p>
 
   <p>
-    First, the probability of a new hypothesis at time \(t\) is not independent.
-    It depends on the probabilities of its prefix at time \(t-1\), as well as the
+    First, the probability of a new hypothesis at time $t$ is not independent.
+    It depends on the probabilities of its prefix at time $t-1$, as well as the
     CTC merging logic. This requires synchronization and careful management of state.
   </p>
 
   <p>
-    Additionally, the “fan-out” step of extending \(k\) hypotheses to
-    \(k \times N\) new ones has poor spatial locality; threads in a warp may
-    access scattered locations in the \(T \times N\) probability matrix and in
+    Additionally, the “fan-out” step of extending $k$ hypotheses to
+    $k \times N$ new ones has poor spatial locality; threads in a warp may
+    access scattered locations in the $T \times N$ probability matrix and in
     the beam data structures. The “merge” step requires a many-to-one reduction, which
     is also memory-intensive and requires synchronization. This leads to a low
     computation-to-communication ratio; the kernel will be dominated by memory
@@ -214,37 +214,37 @@
   </p>
 
   <p>
-    Let \(T_{\text{step}}\) be the total time for a single decoding step. Let
-    \(S\) represent the effective speedup of the on-device (GPU) parallelizable
+    Let $T_{\text{step}}$ be the total time for a single decoding step. Let
+    $S$ represent the effective speedup of the on-device (GPU) parallelizable
     portion of the task, which accounts for all GPU architectural improvements (cores,
     specialized hardware, and memory bandwidth). The transition from an early GPU
-    generation (\(G_1\)) to a modern one (\(G_2\)) can be modeled as follows:
+    generation ($G_1$) to a modern one ($G_2$) can be modeled as follows:
   </p>
 
-  \[
+  $$
   \begin{aligned}
     T_{\text{step}} &= T_{\text{compute}} + T_{\text{transfer}} \\
     \text{Given } T_{\text{compute}}(G_2) &= \frac{T_{\text{compute}}(G_1)}{S} \text{ where } S \gg 1 \\
     \text{and } T_{\text{transfer}}(G_2) &\approx T_{\text{transfer}}(G_1)
   \end{aligned}
-  \]
+  $$
 
   <p>
-    The fraction of time spent on data transfer, \(f\), consequently shifts from
-    \(f_1\) to \(f_2\):
+    The fraction of time spent on data transfer, $f$, consequently shifts from
+    $f_1$ to $f_2$:
   </p>
 
-  \[
+  $$
   f_1 = \frac{T_{\text{transfer}}(G_1)}
              {T_{\text{compute}}(G_1) + T_{\text{transfer}}(G_1)}
   \longrightarrow
   f_2 \approx \frac{T_{\text{transfer}}(G_1)}
                      {\frac{T_{\text{compute}}(G_1)}{S} + T_{\text{transfer}}(G_1)}
-  \]
+  $$
 
   <p>
-    As the effective speedup \(S\) grows, the effect of
-    \(T_{\text{compute}}(G_1)/S\) is diminished and
+    As the effective speedup $S$ grows, the effect of
+    $T_{\text{compute}}(G_1)/S$ is diminished and
     the transfer begins to dominate. Consequently, in this project we will attempt to
     maximize the fraction of computation that can be performed efficiently on-device to
     attempt to minimize the effect of the transfer term on overall performance.

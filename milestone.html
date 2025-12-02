@@ -58,7 +58,7 @@
 
   <h2>CTC vs. Auto-Regressive Beam Search</h2>
   <p>
-    Following deeper research into the topic, we chose to center the project on standard CTC beam search decoding, because it is significantly more amenable to parallelization on CUDA. With a classic CTC approach, the model (neural network) produces the full distribution over tokens for all time steps in a single forward pass, with shape \(B \times T \times V\), as described in our API (found in our projects <code>README.md</code>). The decoder then operates entirely on these pre-computed (log-)probabilities to perform top-\(K\) selection and manage beam hypotheses. Since the model’s predictions at each time step do not depend on the discrete tokens chosen during decoding at the previous time step, the main computation reduces to dynamic programming over a fixed tensor. This exposes multiple, clean axes for parallelism (over batch, time, and beam), making it a natural starting point for our project.
+    Following deeper research into the topic, we chose to center the project on standard CTC beam search decoding, because it is significantly more amenable to parallelization on CUDA. With a classic CTC approach, the model (neural network) produces the full distribution over tokens for all time steps in a single forward pass, with shape $B \times T \times V$, as described in our API (found in our projects <code>README.md</code>). The decoder then operates entirely on these pre-computed (log-)probabilities to perform top-$K$ selection and manage beam hypotheses. Since the model’s predictions at each time step do not depend on the discrete tokens chosen during decoding at the previous time step, the main computation reduces to dynamic programming over a fixed tensor. This exposes multiple, clean axes for parallelism (over batch, time, and beam), making it a natural starting point for our project.
   </p>
   <p>
     By contrast, Auto-Regressive beam search introduces an explicit dependency between previously and subsequently generated tokens: each new token is conditioned on the entire prefix of tokens generated so far. Practically, this means that decoding requires repeated queries to the neural network, with each forward pass depending on the outputs of the previous step. While some parallelism remains (e.g., across batch and beams at a given step), the time dimension now has more fundamentally sequential work (model calls) which makes it more challenging to exploit parallelism.
@@ -74,33 +74,33 @@
     Our implementation parallelizes CTC beam search decoding by decomposing the expansion, merging, and pruning stages into distinct CUDA kernels that operate concurrently across the batch and beam dimensions. The decoder maintains the state of all active hypotheses in flat, contiguous arrays on the GPU, following a structure-of-arrays layout so that consecutive threads access consecutive memory locations. At each time step, an expansion kernel extends every active hypothesis with all possible tokens in parallel; each thread is responsible for a single beam--token pair. During this expansion, CTC-specific correctness rules for blanks and repeated symbols are enforced locally: blank extensions update blank and non-blank probabilities without changing the output sequence, and repeated tokens are handled so as not to duplicate symbols in the decoded output.
   </p>
   <p>
-    To make merging of duplicate prefixes amenable to highly parallel sorting and reduction, each candidate hypothesis is assigned a compact integer key encoding both its batch index and a rolling hash of its output-sequence prefix. Let \(b \in \{0,\dots,B-1\}\) denote the batch index and \(\{c_1,\dots,c_L\}\) the token sequence, with \(c_t \in \{0,\dots,V-1\}\). A 32-bit rolling hash is maintained according to
+    To make merging of duplicate prefixes amenable to highly parallel sorting and reduction, each candidate hypothesis is assigned a compact integer key encoding both its batch index and a rolling hash of its output-sequence prefix. Let $b \in \{0,\dots,B-1\}$ denote the batch index and $\{c_1,\dots,c_L\}$ the token sequence, with $c_t \in \{0,\dots,V-1\}$. A 32-bit rolling hash is maintained according to
   </p>
-  \[
+  $$
     h_0 = 0,\qquad
     h_t = (\alpha h_{t-1} + (c_t + 1)) \bmod 2^{32}, \quad t = 1,\dots,L,
-  \]
+  $$
   <p>
-    for a fixed multiplier \(\alpha\). To implement the DJB2 string hash, we use \(\alpha=33\); empirically, this value yields favorable hash value distributions while meaningfully mixing new token additions. At runtime, the 32-bit key space is partitioned into \(k_{\text{batch}}\) bits for the batch index and \(k_{\text{hash}}\) bits for the hash, with
+    for a fixed multiplier $\alpha$. To implement the DJB2 string hash, we use $\alpha=33$; empirically, this value yields favorable hash value distributions while meaningfully mixing new token additions. At runtime, the 32-bit key space is partitioned into $k_{\text{batch}}$ bits for the batch index and $k_{\text{hash}}$ bits for the hash, with
   </p>
-  \[
+  $$
     k_{\text{batch}} = \left\lceil \log_2 B \right\rceil,\qquad
     k_{\text{hash}} = 32 - k_{\text{batch}}.
-  \]
+  $$
   <p>
-    The packed key for a candidate at time \(t\) in batch \(b\) is then
+    The packed key for a candidate at time $t$ in batch $b$ is then
   </p>
-  \[
+  $$
     \text{key} = (b \ll k_{\text{hash}}) \;\big|\; \bigl(h_t \;\&\; (2^{k_{\text{hash}}} - 1)\bigr),
-  \]
+  $$
   <p>
-    so the high bits uniquely identify the batch and the low bits encode a truncated rolling hash of the prefix. Within a fixed batch, two different prefixes collide only if their hashes agree modulo \(2^{k_{\text{hash}}}\).
+    so the high bits uniquely identify the batch and the low bits encode a truncated rolling hash of the prefix. Within a fixed batch, two different prefixes collide only if their hashes agree modulo $2^{k_{\text{hash}}}$.
   </p>
   <p>
-    For fixed \(N\), increasing \(k_{\text{hash}}\) strictly decreases the collision probability. The dynamic bit allocation used here chooses \(k_{\text{batch}}\) just large enough to represent all batch indices, dedicating all remaining bits to the hash. While the overall hashing optimization may well lead to reduced decoding performance, though it enables the massively parallel sort and reduce operations which form the backbone of this implementation's speedup over CPU.
+    For fixed $N$, increasing $k_{\text{hash}}$ strictly decreases the collision probability. The dynamic bit allocation used here chooses $k_{\text{batch}}$ just large enough to represent all batch indices, dedicating all remaining bits to the hash. While the overall hashing optimization may well lead to reduced decoding performance, though it enables the massively parallel sort and reduce operations which form the backbone of this implementation's speedup over CPU.
   </p>
   <p>
-    After keys and candidate probabilities are computed, the merge stage applies the Thrust library's radix sort and reduce-by-key operations to regroup and aggregate all candidates sharing the same key. This merges all beams that yield the same prefix within a batch by summing their log-probabilities. Finally, a pruning kernel scans the merged hypotheses in each batch and selects the top-\(K\) beams by total probability, enforcing the beam width constraint.
+    After keys and candidate probabilities are computed, the merge stage applies the Thrust library's radix sort and reduce-by-key operations to regroup and aggregate all candidates sharing the same key. This merges all beams that yield the same prefix within a batch by summing their log-probabilities. Finally, a pruning kernel scans the merged hypotheses in each batch and selects the top-$K$ beams by total probability, enforcing the beam width constraint.
   </p>
 
   <h3>Benchmarking</h3>
@@ -110,14 +110,14 @@
   <p>
     For our initial performance evaluation, we benchmark the two implementations using the following test configuration:
   </p>
-  \[
+  $$
     \texttt{--batch-size } 4,\quad
     \texttt{--time-steps } 256,\quad
     \texttt{--vocab-size } 128,\quad
     \texttt{--beam-width } 20.
-  \]
+  $$
   <p>
-    In this configuration, our Python testing driver reports an average CPU decoding time of \(12.38\) seconds compared to \(0.172\) seconds on the GPU, corresponding to a \(72\times\) speedup.
+    In this configuration, our Python testing driver reports an average CPU decoding time of $12.38$ seconds compared to $0.172$ seconds on the GPU, corresponding to a $72\times$ speedup.
   </p>
   <p>
     For local experiments, we also benchmarked on a Lenovo Legion Pro 7i Gen 10 laptop equipped with an Intel Core Ultra 9 275HX CPU (24 cores, up to 5.4 GHz) and an NVIDIA GeForce RTX 5070 Ti Laptop GPU, running Ubuntu 24.04. On this system, we use PyTorch’s Linux nightly wheels built against CUDA 12.8, together with the corresponding NVIDIA driver. <em>Note: preliminary results.</em>
@@ -142,7 +142,7 @@
         </tr>
         <tr>
           <td>Speedup</td>
-          <td>\(72\times\)</td>
+          <td>$72\times$</td>
         </tr>
       </tbody>
     </table>
@@ -150,10 +150,10 @@
 
   <h3>Integration</h3>
   <p>
-    To simulate a real-world inference scenario, we wrapped our CUDA decoder using PyTorch's C++ extension API (internally running <code>pybind11</code>) and expose it as a drop-in replacement for <code>torchaudio.models.decoder.ctc_decoder</code>. Both decoders consume the same inputs (CTC log-probabilities of shape \(B \times T \times V\), vocabulary, blank symbol, and some config state) and are callable by our Python testing driver. The testing harness accepts a configuration flag for varied inputs. This design allows us to create a close to equal environment to compare against the reference implementation.
+    To simulate a real-world inference scenario, we wrapped our CUDA decoder using PyTorch's C++ extension API (internally running <code>pybind11</code>) and expose it as a drop-in replacement for <code>torchaudio.models.decoder.ctc_decoder</code>. Both decoders consume the same inputs (CTC log-probabilities of shape $B \times T \times V$, vocabulary, blank symbol, and some config state) and are callable by our Python testing driver. The testing harness accepts a configuration flag for varied inputs. This design allows us to create a close to equal environment to compare against the reference implementation.
   </p>
   <p>
-    Within this unified interface, we will benchmark our GPU implementation against the standard CPU implementation across varying batch sizes \(B\) and beam widths \(W\) to identify the point where GPU offloading becomes beneficial. Using identical inputs and configuration for both backends also simplifies correctness checks allowing us to monitor the quality of decoded sequences in addition to perofrmance.
+    Within this unified interface, we will benchmark our GPU implementation against the standard CPU implementation across varying batch sizes $B$ and beam widths $W$ to identify the point where GPU offloading becomes beneficial. Using identical inputs and configuration for both backends also simplifies correctness checks allowing us to monitor the quality of decoded sequences in addition to perofrmance.
   </p>
 
   <h3>Development Environment</h3>
