@@ -10,7 +10,6 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Accelerating CTC Beam Search Decoding on GPUs using CUDA</title>
 
-  <!-- KaTeX CSS -->
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
@@ -18,7 +17,6 @@ title: Accelerating CTC Beam Search Decoding on GPUs using CUDA
     crossorigin="anonymous"
   />
 
-  <!-- KaTeX core -->
   <script
     defer
     src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
@@ -56,129 +54,13 @@ f_2 \approx \frac{T_{\text{transfer}}(G_1)}
     });
   </script>
 
-  <style>
-    :root {
-      --bg-color: #ffffff;
-      --text-color: #333333;
-      --heading-color: #1a1a1a;
-      --link-color: #007bff;
-      --link-hover-color: #0056b3;
-      --border-color: #e0e0e0;
-      --table-header-bg: #f8f9fa;
-      --code-bg: #f1f1f1;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        "Helvetica Neue", Arial, sans-serif;
-      line-height: 1.7;
-      color: var(--text-color);
-      background-color: var(--bg-color);
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    .header-main {
-      text-align: center;
-      margin-bottom: 4rem;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 2rem;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      color: var(--heading-color);
-    }
-
-    .subtitle {
-      font-size: 1.5rem;
-      font-weight: 300;
-      color: var(--text-color);
-      margin-bottom: 1rem;
-    }
-
-    .authors,
-    .date {
-      font-size: 1.1rem;
-      color: var(--text-color);
-    }
-
-    .project-link {
-      margin-top: 2rem;
-    }
-
-    .project-link a {
-      font-size: 1.1rem;
-      display: inline-block;
-      padding: 0.6rem 1.2rem;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      background-color: var(--table-header-bg);
-      transition: background-color 0.2s ease;
-    }
-
-    .project-link a:hover {
-      background-color: #e9ecef;
-      text-decoration: none;
-    }
-
-    h2 {
-      font-size: 2rem;
-      font-weight: 600;
-      color: var(--heading-color);
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 0.5rem;
-      margin-top: 3rem;
-      margin-bottom: 1.5rem;
-    }
-
-    a {
-      color: var(--link-color);
-      text-decoration: none;
-    }
-
-    a:hover {
-      color: var(--link-hover-color);
-      text-decoration: underline;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    th,
-    td {
-      border: 1px solid var(--border-color);
-      padding: 12px;
-      text-align: left;
-    }
-
-    th {
-      background-color: var(--table-header-bg);
-      font-weight: 600;
-    }
-
-    code {
-      background-color: var(--code-bg);
-      padding: 0.2em 0.4em;
-      border-radius: 3px;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
-        monospace;
-    }
-
-    .math-block {
-      margin: 1.5rem 0;
-      text-align: center;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <nav class="nav-tabs">
+    <a href="index.html" class="nav-link active">Proposal</a>
+    <a href="milestone.html" class="nav-link">Milestone</a>
+  </nav>
 
   <div class="header-main">
     <h1>Accelerating CTC Beam Search Decoding on GPUs using CUDA</h1>
